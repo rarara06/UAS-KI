@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Steganografi dengan PCA</title>
+    <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Raleway', sans-serif;
+            background: linear-gradient(135deg, #72EDF2 10%, #5151E5 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            color: #333;
+        }
+
+        .container {
+            text-align: center;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 100%;
+            display: none;
+        }
+
+        .home-container {
+            text-align: center;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 100%;
+        }
+
+        h1 {
+            font-weight: 600;
+            color: #5151E5;
+            margin-bottom: 20px;
+        }
+
+        input[type="file"], textarea, button {
+            margin: 10px 0;
+            padding: 12px;
+            width: calc(100% - 24px);
+            box-sizing: border-box;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+        }
+
+        input[type="file"] {
+            background: #f9f9f9;
+        }
+
+        textarea {
+            height: 100px;
+            resize: none;
+        }
+
+        button {
+            background: #5151E5;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        button:hover {
+            background: #3a3aad;
+        }
+
+        #imageCanvas {
+            display: none;
+            margin: 20px auto 0;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            max-width: 100%;
+        }
+
+        #decodedMessage {
+            margin-top: 20px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        #decodedMessageContainer {
+            display: none;
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            background: #f9f9f9;
+            color: #5151E5;
+        }
+    </style>
+</head>
+<body>
+    <div class="home-container">
+        <h1>Selamat Datang di Steganografi dengan PCA</h1>
+        <button id="startButton">Mulai</button>
+    </div>
+
+    <div class="container">
+        <h1>Steganografi menggunakan PCA</h1>
+        <input type="file" id="imageInput" accept="image/*">
+        <textarea id="messageInput" placeholder="Masukkan pesan rahasia Anda di sini..."></textarea>
+        <button id="encodeButton">Encode Pesan</button>
+        <canvas id="imageCanvas"></canvas>
+        <input type="file" id="encodedImageInput" accept="image/*">
+        <button id="decodeButton">Decode Pesan</button>
+        <div id="decodedMessageContainer">
+            <p>Pesan yang Terdecode:</p>
+            <p id="decodedMessage"></p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('startButton').addEventListener('click', function() {
+            document.querySelector('.home-container').style.display = 'none';
+            document.querySelector('.container').style.display = 'block';
+        });
+
+        document.getElementById('encodeButton').addEventListener('click', encodeMessage);
+        document.getElementById('decodeButton').addEventListener('click', decodeMessage);
+        document.getElementById('imageInput').addEventListener('change', handleImage);
+        document.getElementById('encodedImageInput').addEventListener('change', handleEncodedImage);
+
+        let imageCanvas = document.getElementById('imageCanvas');
+        let ctx = imageCanvas.getContext('2d');
+        let image = new Image();
+
+        function resizeImage(image, maxWidth, maxHeight) {
+            let canvas = document.createElement('canvas');
+            let ctx = canvas.getContext('2d');
+
+            let width = image.width;
+            let height = image.height;
+
+            if (width > height) {
+                if (width > maxWidth) {
+                    height *= maxWidth / width;
+                    width = maxWidth;
+                }
+            } else {
+                if (height > maxHeight) {
+                    width *= maxHeight / height;
+                    height = maxHeight;
+                }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            ctx.drawImage(image, 0, 0, width, height);
+
+            return canvas;
+        }
+
+        function handleImage(event) {
+            let reader = new FileReader();
+            reader.onload = function(event) {
+                image.onload = function() {
+                    let resizedCanvas = resizeImage(image, 300, 300);
+                    imageCanvas.width = resizedCanvas.width;
+                    imageCanvas.height = resizedCanvas.height;
+                    ctx.drawImage(resizedCanvas, 0, 0);
+                    imageCanvas.style.display = 'block';
+                }
+                image.src = event.target.result;
+            }
+            reader.readAsDataURL(event.target.files[0]);
+        }
+
+        function handleEncodedImage(event) {
+            let reader = new FileReader();
+            reader.onload = function(event) {
+                image.onload = function() {
+                    let resizedCanvas = resizeImage(image, 300, 300);
+                    imageCanvas.width = resizedCanvas.width;
+                    imageCanvas.height = resizedCanvas.height;
+                    ctx.drawImage(resizedCanvas, 0, 0);
+                    imageCanvas.style.display = 'block';
+                }
+                image.src = event.target.result;
+            }
+            reader.readAsDataURL(event.target.files[0]);
+        }
+
+        function encodeMessage() {
+            let message = document.getElementById('messageInput').value;
+            if (message.length === 0) {
+                alert("Tolong masukkan pesan untuk di-encode.");
+                return;
+            }
+
+            let imgData = ctx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
+            let pixels = imgData.data;
+
+            // Encode pesan ke dalam LSB (Least Significant Bit)
+            let binaryMessage = toBinary(message + '\0'); // Menambahkan null character sebagai penanda akhir pesan
+            let messageIndex = 0;
+
+            for (let i = 0; i < pixels.length; i += 4) {
+                for (let j = 0; j < 3; j++) { // Hanya memodifikasi RGB, bukan alpha
+                    if (messageIndex < binaryMessage.length) {
+                        pixels[i + j] = (pixels[i + j] & 0xFE) | parseInt(binaryMessage[messageIndex]);
+                        messageIndex++;
+                    }
+                }
+            }
+
+            ctx.putImageData(imgData, 0, 0);
+
+            alert("Pesan berhasil di-encode!");
+        }
+
+        function decodeMessage() {
+            let imgData = ctx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
+            let pixels = imgData.data;
+
+            let binaryMessage = '';
+            for (let i = 0; i < pixels.length; i += 4) {
+                for (let j = 0; j < 3; j++) { // Hanya memodifikasi RGB, bukan alpha
+                    binaryMessage += (pixels[i + j] & 1);
+                }
+            }
+
+            let message = toText(binaryMessage);
+            document.getElementById('decodedMessage').innerText = message;
+            document.getElementById('decodedMessageContainer').style.display = 'block';
+        }
+
+        function toBinary(message) {
+            return message.split('').map(char => char.charCodeAt(0).toString(2).padStart(8, '0')).join('');
+        }
+
+        function toText(binary) {
+            let message = '';
+            for (let i = 0; i < binary.length; i += 8) {
+                let byte = binary.substring(i, i + 8);
+                if (byte === '00000000') break; // Berhenti di karakter null
+                message += String.fromCharCode(parseInt(byte, 2));
+            }
+            return message;
+        }
+    </script>
+</body>
+</html>
